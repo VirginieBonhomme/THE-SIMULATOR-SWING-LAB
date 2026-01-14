@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ScrollBeat — Text to Drum Machine</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">The Simulator</p>
+          <div class="te-panel" aria-hidden="true">
+            <span class="te-chip">Swing Lab</span>
+            <span class="te-led"></span>
+            <span class="te-led"></span>
+            <span class="te-led"></span>
+          </div>
+          <h1>Build drums, chop samples, and sketch melodies in one flow.</h1>
+          <p class="subhead">
+            A hands-on beat lab with step sequencing, pad chops, and melodic layers.
+          </p>
+        </div>
+      </header>
+
+      <section class="transport">
+        <button id="playBtn" class="ghost">Play</button>
+        <button id="stopBtn" class="ghost">Stop</button>
+        <button id="exportBtn" class="ghost">Export 16 bars</button>
+        <label class="toggle-pill">
+          <input id="noiseToggle" type="checkbox" />
+          <span>Noise</span>
+        </label>
+        <label class="field">
+          <span>Drum kit</span>
+          <select id="drumKit">
+            <option value="classic">Classic</option>
+            <option value="crisp">Crisp</option>
+            <option value="moody">Moody</option>
+            <option value="jazzy">Jazzy</option>
+            <option value="lofi">Lo-fi</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Master low</span>
+          <input id="masterLow" type="range" min="-12" max="12" value="0" />
+          <span id="masterLowValue">0 dB</span>
+        </label>
+        <label class="field">
+          <span>Master mid</span>
+          <input id="masterMid" type="range" min="-12" max="12" value="0" />
+          <span id="masterMidValue">0 dB</span>
+        </label>
+        <label class="field">
+          <span>Master high</span>
+          <input id="masterHigh" type="range" min="-12" max="12" value="0" />
+          <span id="masterHighValue">0 dB</span>
+        </label>
+        <label class="field">
+          <span>Swing feel</span>
+          <select id="swingPreset">
+            <option value="straight">Straight</option>
+            <option value="swing-54">Swing 54%</option>
+            <option value="swing-58">Swing 58% late hats</option>
+            <option value="swing-62">Swing 62% late hats</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Tempo</span>
+          <input id="tempo" type="range" min="70" max="160" value="98" />
+          <span id="tempoValue">98 BPM</span>
+        </label>
+        <label class="field">
+          <span>Swing</span>
+          <input id="swing" type="range" min="0" max="70" value="18" />
+          <span id="swingValue">18%</span>
+        </label>
+        <p class="hint">Hit Play. Dial Tempo + Swing for feel.</p>
+      </section>
+
+      <section class="grid-wrap">
+        <div class="grid-header">
+          <h2>Step sequencer</h2>
+          <p class="hint">Click any cell to toggle it. Scroll horizontally for more steps.</p>
+        </div>
+        <div class="mode-bar">
+          <span class="mode-label">Edit mode</span>
+          <button id="modeToggle" class="mode-btn active" type="button">Toggle</button>
+          <button id="modeTiming" class="mode-btn" type="button">Micro-timing</button>
+          <button id="modeVelocity" class="mode-btn" type="button">Velocity</button>
+          <span class="hint">Micro-timing = push/pull. Velocity = hit strength.</span>
+        </div>
+        <div class="sequencer-row">
+          <div id="sequencer" class="sequencer" aria-label="Drum sequencer"></div>
+        </div>
+      </section>
+
+      <section class="sampler">
+        <div class="sampler-header">
+          <div>
+            <div class="device-label">Unit: CHOP-16</div>
+            <h3>Sampler</h3>
+            <p class="hint">Load a sample, trim it, and play it across a melodic scale. Press play to load sample wave.</p>
+          </div>
+          <div class="sampler-actions">
+            <button id="playSampleBtn" class="ghost">Play sample</button>
+          </div>
+        </div>
+        <div class="waveform-panel">
+          <canvas id="waveform" width="720" height="140"></canvas>
+        </div>
+        <div class="sampler-grid">
+          <div class="sampler-block">
+            <div class="block-title">Sampler</div>
+            <div class="sampler-card">
+              <div class="card-title">Sample <span class="icon-badge">S</span></div>
+              <p class="hint">Drop a file, then trim the waveform.</p>
+              <label class="drop-zone" for="sampleFile">
+                <span class="drop-title">Drop audio or click to load</span>
+                <span id="sampleFileName" class="drop-subtitle">No file</span>
+              </label>
+              <input id="sampleFile" class="file-input" type="file" accept="audio/*" />
+              <div class="card-actions">
+                <button id="browseSample" class="ghost small" type="button">Browse</button>
+                <button id="auditionSample" class="ghost small" type="button">Audition</button>
+                <button id="clearSample" class="ghost small" type="button">Clear</button>
+              </div>
+              <div class="dual-row">
+                <label class="field">
+                  <span>Pitch</span>
+                  <input id="samplePitch" type="range" min="-12" max="12" value="0" />
+                  <span id="samplePitchValue">0 st</span>
+                </label>
+                <label class="field">
+                  <span>Tone</span>
+                  <input id="sampleTone" type="range" min="400" max="8000" value="2400" />
+                  <span id="sampleToneValue">2400 Hz</span>
+                </label>
+              </div>
+              <div class="dual-row">
+                <label class="field">
+                  <span>Trim start</span>
+                  <input id="trimStart" type="range" min="0" max="95" value="0" />
+                  <span id="trimStartValue">0%</span>
+                </label>
+                <label class="field">
+                  <span>Trim end</span>
+                  <input id="trimEnd" type="range" min="5" max="100" value="100" />
+                  <span id="trimEndValue">100%</span>
+                </label>
+              </div>
+            </div>
+          </div>
+            <div class="sampler-block">
+              <div class="block-title">Melodic Play</div>
+              <div class="sampler-card">
+                <div class="card-title">Scale + keys</div>
+                <p class="hint">Pick a scale, then play keys or sequence below.</p>
+                <div class="dual-row">
+                  <label class="field">
+                    <span>Root</span>
+                    <select id="sampleRoot">
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                    <option value="E">E</option>
+                    <option value="F">F</option>
+                    <option value="G">G</option>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Scale</span>
+                  <select id="sampleScale">
+                    <option value="minor">Minor</option>
+                    <option value="major">Major</option>
+                    <option value="dorian">Dorian</option>
+                  </select>
+                </label>
+              </div>
+              <div class="dual-row">
+                <label class="field">
+                  <span>Octave</span>
+                  <select id="sampleOctave">
+                    <option value="2">2</option>
+                    <option value="3" selected>3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Level</span>
+                  <input id="sampleVolume" type="range" min="0" max="100" value="70" />
+                  <span id="sampleVolumeValue">70%</span>
+                </label>
+              </div>
+              <div id="sampleKeys" class="sample-keys"></div>
+              <div class="sample-seq-label">Sample sequencer</div>
+              <div id="sampleSeq" class="sample-seq"></div>
+              </div>
+            </div>
+          </div>
+        <p id="sampleStatus" class="hint">No sample loaded.</p>
+      </section>
+
+      <section class="pad-section">
+        <div class="pad-bank">
+          <div class="pad-title">Sample Pad Bank</div>
+          <p class="hint">Tap pads to play slices. Record to capture to the grid.</p>
+          <label class="toggle-pill">
+            <input id="padRecord" type="checkbox" />
+            <span>Record</span>
+          </label>
+          <div id="samplePads" class="pad-grid" aria-label="Sample pads"></div>
+          <div class="pad-seq-label">Pad sequencer</div>
+          <p class="hint">Edit hits here after recording.</p>
+          <div id="padSeq" class="pad-seq" aria-label="Pad sequencer"></div>
+        </div>
+      </section>
+
+      <section class="synth">
+        <div class="synth-header">
+          <div>
+            <div class="device-label">Unit: MELO-8</div>
+            <h3>Synth</h3>
+            <p class="hint">Tap a note lane to build a melody. Plays alongside the drums.</p>
+          </div>
+          <div class="synth-controls">
+            <label class="field">
+              <span>Root</span>
+              <select id="synthRoot">
+                <option value="C">C</option>
+                <option value="D">D</option>
+                <option value="E">E</option>
+                <option value="F">F</option>
+                <option value="G">G</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Scale</span>
+              <select id="synthScale">
+                <option value="minor">Minor</option>
+                <option value="major">Major</option>
+                <option value="dorian">Dorian</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Octave</span>
+              <select id="synthOctave">
+                <option value="2">2</option>
+                <option value="3" selected>3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Wave</span>
+              <select id="synthWave">
+                <option value="triangle" selected>Triangle</option>
+                <option value="sine">Sine</option>
+                <option value="square">Square</option>
+                <option value="sawtooth">Saw</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Cutoff</span>
+              <input id="synthCutoff" type="range" min="400" max="6000" value="1800" />
+              <span id="synthCutoffValue">1800 Hz</span>
+            </label>
+            <label class="field">
+              <span>Volume</span>
+              <input id="synthVolume" type="range" min="0" max="100" value="65" />
+              <span id="synthVolumeValue">65%</span>
+            </label>
+          </div>
+        </div>
+        <div id="synthGrid" class="synth-grid" aria-label="Synth sequencer"></div>
+        <p class="hint">Tap cells to add notes. Shape tone with Cutoff.</p>
+      </section>
+
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
