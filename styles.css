@@ -576,12 +576,16 @@ button:active {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
+  min-width: 0;
+  width: 100%;
 }
 
 .sampler-block {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
+  width: 100%;
 }
 
 .block-title {
@@ -601,6 +605,8 @@ button:active {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
+  width: 100%;
 }
 
 .card-title {
@@ -861,14 +867,19 @@ button:active {
   display: block;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1200px) {
+  .track {
+    grid-template-columns: 130px repeat(16, 40px);
+  }
+}
+
+@media (max-width: 992px) {
   .hero {
     grid-template-columns: 1fr;
   }
 
-
   .track {
-    grid-template-columns: 120px repeat(16, 40px);
+    grid-template-columns: 120px repeat(16, 38px);
   }
 
   .sequencer-row {
@@ -876,12 +887,166 @@ button:active {
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .app {
-    padding: 32px 16px 60px;
+    padding: 32px 20px 60px;
+  }
+
+  .controls,
+  .transport,
+  .synth-controls {
+    gap: 12px;
+  }
+
+  .field input[type="range"] {
+    width: 150px;
+  }
+
+  .sampler-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dual-row {
+    grid-template-columns: 1fr;
+  }
+
+  .sample-keys {
+    grid-template-columns: repeat(4, minmax(44px, 1fr));
+  }
+
+  .pad-seq-row {
+    grid-template-columns: 28px repeat(16, 22px);
+    gap: 4px;
+  }
+
+  .pad-seq-step {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+@media (max-width: 576px) {
+  .app {
+    padding: 28px 16px 52px;
+  }
+
+  .controls,
+  .transport,
+  .synth-controls {
+    gap: 10px;
+  }
+
+  .transport {
+    align-items: stretch;
+  }
+
+  .transport button {
+    flex: 1 1 140px;
+  }
+
+  .toggle-pill {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .field input[type="range"] {
+    width: 130px;
+  }
+
+  .sampler-grid,
+  .sampler-block,
+  .sampler-card {
+    max-width: 100%;
+  }
+
+  .sampler-card {
+    padding: 10px;
+  }
+
+  .drop-zone {
+    padding: 10px;
+  }
+
+  .sampler-grid {
+    overflow-x: hidden;
+  }
+
+  .sampler-card {
+    overflow: visible;
+  }
+
+  .field input[type="text"],
+  .field input[type="password"],
+  .field input[type="range"],
+  .field select {
+    width: 100%;
   }
 
   .track {
-    grid-template-columns: 100px repeat(16, 38px);
+    grid-template-columns: 100px repeat(16, 36px);
+  }
+
+  .sequencer {
+    padding: 12px;
+  }
+
+  .pad-bank {
+    padding: 10px;
+  }
+
+  .pad-grid {
+    grid-template-columns: repeat(3, 60px);
+    justify-content: center;
+  }
+
+  .pad-btn {
+    width: 60px;
+    height: 60px;
+  }
+
+  .sample-seq-row {
+    grid-template-columns: 60px repeat(16, 24px);
+    gap: 4px;
+  }
+
+  .sample-seq-step {
+    width: 24px;
+    height: 24px;
+  }
+
+  .synth-row {
+    grid-template-columns: 70px repeat(16, 30px);
+    gap: 4px;
+  }
+
+  .synth-step {
+    width: 30px;
+    height: 30px;
+  }
+
+  .sampler-card {
+    overflow: hidden;
+  }
+
+  .sample-keys {
+    grid-template-columns: repeat(4, minmax(40px, 1fr));
+    width: 100%;
+  }
+
+  .sample-seq {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
+  .sample-seq-row {
+    min-width: max-content;
+  }
+
+  .sequencer,
+  .pad-seq,
+  .sample-seq,
+  .synth-grid {
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
   }
 }
