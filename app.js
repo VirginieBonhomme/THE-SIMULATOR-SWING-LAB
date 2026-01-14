@@ -169,6 +169,12 @@ const SCALES = {
   dorian: [0, 2, 3, 5, 7, 9, 10, 12],
 };
 
+const STORAGE_KEY = "beatlab-state-v1";
+let saveTimer = null;
+const SAMPLE_DB = "beatlab-samples";
+const SAMPLE_STORE = "samples";
+const SAMPLE_KEY = "current";
+
 
 function initPattern() {
   tracks.forEach((track) => {
@@ -197,6 +203,216 @@ function initPadGrid() {
   state.sample.padGrid = Array.from({ length: 9 }, () =>
     Array.from({ length: state.steps }, () => false)
   );
+}
+
+function openSampleDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(SAMPLE_DB, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(SAMPLE_STORE)) {
+        db.createObjectStore(SAMPLE_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function saveSampleToDb(file, arrayBuffer) {
+  const db = await openSampleDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SAMPLE_STORE, "readwrite");
+    const store = tx.objectStore(SAMPLE_STORE);
+    const payload = {
+      name: file.name,
+      type: file.type,
+      data: file,
+    };
+    store.put(payload, SAMPLE_KEY);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function loadSampleFromDb() {
+  const db = await openSampleDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SAMPLE_STORE, "readonly");
+    const store = tx.objectStore(SAMPLE_STORE);
+    const request = store.get(SAMPLE_KEY);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function clearSampleFromDb() {
+  const db = await openSampleDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SAMPLE_STORE, "readwrite");
+    const store = tx.objectStore(SAMPLE_STORE);
+    store.delete(SAMPLE_KEY);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function scheduleSave() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveState, 300);
+}
+
+function saveState() {
+  const data = {
+    version: 1,
+    tempo: tempoInput.value,
+    swing: swingInput.value,
+    swingPreset: swingPresetSelect.value,
+    drumKit,
+    noise: noiseToggle.checked,
+    masterEq: {
+      low: masterLowInput.value,
+      mid: masterMidInput.value,
+      high: masterHighInput.value,
+    },
+    pattern: state.pattern,
+    timing: state.timing,
+    velocity: state.velocity,
+    timingBias: state.timingBias,
+    synth: {
+      root: state.synth.root,
+      scale: state.synth.scale,
+      octave: state.synth.octave,
+      wave: state.synth.wave,
+      cutoff: state.synth.cutoff,
+      volume: state.synth.volume,
+      grid: state.synth.grid,
+    },
+    sample: {
+      root: state.sample.root,
+      scale: state.sample.scale,
+      octave: state.sample.octave,
+      pitch: state.sample.pitch,
+      tone: state.sample.tone,
+      volume: state.sample.volume,
+      trimStart: state.sample.trimStart,
+      trimEnd: state.sample.trimEnd,
+      grid: state.sample.grid,
+      padGrid: state.sample.padGrid,
+    },
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function loadState() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    if (!data || data.version !== 1) return;
+
+    tempoInput.value = data.tempo ?? tempoInput.value;
+    swingInput.value = data.swing ?? swingInput.value;
+    swingPresetSelect.value = data.swingPreset || swingPresetSelect.value;
+    applySwingPreset(swingPresetSelect.value);
+
+    drumKit = data.drumKit || drumKit;
+    drumKitSelect.value = drumKit;
+    noiseToggle.checked = Boolean(data.noise);
+
+    if (data.masterEq) {
+      masterLowInput.value = data.masterEq.low ?? masterLowInput.value;
+      masterMidInput.value = data.masterEq.mid ?? masterMidInput.value;
+      masterHighInput.value = data.masterEq.high ?? masterHighInput.value;
+      applyMasterEq();
+    }
+
+    state.pattern = data.pattern || state.pattern;
+    state.timing = data.timing || state.timing;
+    state.velocity = data.velocity || state.velocity;
+    state.timingBias = data.timingBias || state.timingBias;
+
+    if (data.synth) {
+      state.synth.root = data.synth.root || state.synth.root;
+      state.synth.scale = data.synth.scale || state.synth.scale;
+      state.synth.octave = data.synth.octave || state.synth.octave;
+      state.synth.wave = data.synth.wave || state.synth.wave;
+      state.synth.cutoff = data.synth.cutoff || state.synth.cutoff;
+      state.synth.volume = data.synth.volume ?? state.synth.volume;
+      state.synth.grid = data.synth.grid || state.synth.grid;
+      synthRootSelect.value = state.synth.root;
+      synthScaleSelect.value = state.synth.scale;
+      synthOctaveSelect.value = String(state.synth.octave);
+      synthWaveSelect.value = state.synth.wave;
+      synthCutoffInput.value = String(state.synth.cutoff);
+      synthVolumeInput.value = String(Math.round(state.synth.volume * 100));
+      applySynthSettings();
+    }
+
+    if (data.sample) {
+      state.sample.root = data.sample.root || state.sample.root;
+      state.sample.scale = data.sample.scale || state.sample.scale;
+      state.sample.octave = data.sample.octave || state.sample.octave;
+      state.sample.pitch = data.sample.pitch ?? state.sample.pitch;
+      state.sample.tone = data.sample.tone ?? state.sample.tone;
+      state.sample.volume = data.sample.volume ?? state.sample.volume;
+      state.sample.trimStart = data.sample.trimStart ?? state.sample.trimStart;
+      state.sample.trimEnd = data.sample.trimEnd ?? state.sample.trimEnd;
+      state.sample.grid = data.sample.grid || state.sample.grid;
+      state.sample.padGrid = data.sample.padGrid || state.sample.padGrid;
+      sampleRootSelect.value = state.sample.root;
+      sampleScaleSelect.value = state.sample.scale;
+      sampleOctaveSelect.value = String(state.sample.octave);
+      samplePitchInput.value = String(state.sample.pitch);
+      sampleToneInput.value = String(state.sample.tone);
+      sampleVolumeInput.value = String(Math.round(state.sample.volume * 100));
+      trimStartInput.value = String(Math.round(state.sample.trimStart * 100));
+      trimEndInput.value = String(Math.round(state.sample.trimEnd * 100));
+      handleSampleControlsChange();
+      handleSampleTrimChange();
+      renderSampleSequencer();
+      renderPadSequencer();
+    }
+
+    updateTempoLabel();
+    updateSwingLabel();
+    renderSequencer();
+    renderSynthGrid();
+  } catch (error) {
+    console.warn("Failed to load saved state.", error);
+  }
+}
+
+async function loadSampleFromStorage() {
+  try {
+    updateSampleStatus("Restoring sample...");
+    const stored = await loadSampleFromDb();
+    if (!stored || !stored.data) {
+      updateSampleStatus("No sample loaded.");
+      drawSampleWaveform();
+      return;
+    }
+    await ensureAudioReady();
+    const arrayBuffer = await stored.data.arrayBuffer();
+    const buffer = await decodeAudio(arrayBuffer);
+    state.sample.buffer = buffer;
+    state.sample.name = stored.name || "Sample";
+    if (sampleFileName) {
+      sampleFileName.textContent = state.sample.name;
+    }
+    const duration = state.sample.buffer?.duration;
+    const durationText = duration ? ` • ${duration.toFixed(2)}s` : "";
+    const channels = state.sample.buffer?.numberOfChannels ?? 0;
+    updateSampleStatus(`Loaded: ${state.sample.name}${durationText} • ${channels}ch`);
+    drawSampleWaveform();
+    renderSampleKeys();
+    renderSamplePads();
+    renderPadSequencer();
+  } catch (error) {
+    console.warn("Failed to restore sample.", error);
+    updateSampleStatus("Sample restore failed. Reload the file.");
+    drawSampleWaveform();
+  }
 }
 
 function renderSequencer() {
@@ -251,6 +467,7 @@ function renderSynthGrid() {
       cell.addEventListener("click", () => {
         state.synth.grid[rowIndex][step] = !state.synth.grid[rowIndex][step];
         cell.classList.toggle("active", state.synth.grid[rowIndex][step]);
+        scheduleSave();
       });
       row.appendChild(cell);
     }
@@ -285,6 +502,7 @@ function refreshStepMarks() {
 function toggleStep(trackId, step, cell) {
   state.pattern[trackId][step] = !state.pattern[trackId][step];
   cell.classList.toggle("active", state.pattern[trackId][step]);
+  scheduleSave();
 }
 
 function cycleTiming(trackId, step, cell) {
@@ -294,6 +512,7 @@ function cycleTiming(trackId, step, cell) {
   const next = values[(index + 1) % values.length];
   state.timing[trackId][step] = next;
   updateStepMark(cell, trackId, step);
+  scheduleSave();
 }
 
 function cycleVelocity(trackId, step, cell) {
@@ -303,6 +522,7 @@ function cycleVelocity(trackId, step, cell) {
   const next = values[(index + 1) % values.length];
   state.velocity[trackId][step] = next;
   updateStepMark(cell, trackId, step);
+  scheduleSave();
 }
 
 function handleStepClick(trackId, step, cell) {
@@ -337,6 +557,7 @@ function applyMasterEq() {
   if (state.masterEqMid) state.masterEqMid.gain.value = mid;
   if (state.masterEqHigh) state.masterEqHigh.gain.value = high;
   updateMasterEqLabels();
+  scheduleSave();
 }
 
 function updateSampleLabels() {
@@ -379,7 +600,7 @@ function drawSampleWaveform() {
   ctx.fillRect(0, 0, width, height);
 
   if (!state.sample.buffer) {
-    const label = state.sample.isLoading ? "Decoding sample..." : "Load a sample to see the waveform.";
+    const label = state.sample.isLoading ? "Decoding sample..." : "Load a sample to see waveform.";
     ctx.fillStyle = "#6e6257";
     ctx.font = "14px Space Mono, Courier New, monospace";
     ctx.fillText(label, 16, height / 2);
@@ -501,6 +722,7 @@ function renderSampleSequencer() {
       cell.addEventListener("click", () => {
         state.sample.grid[rowIndex][step] = !state.sample.grid[rowIndex][step];
         cell.classList.toggle("active", state.sample.grid[rowIndex][step]);
+        scheduleSave();
       });
       row.appendChild(cell);
     }
@@ -521,7 +743,7 @@ function renderSamplePads() {
     btn.disabled = !hasSample;
     btn.addEventListener("click", () => {
       playSampleSlice(i);
-  if (padRecordToggle?.checked && state.isPlaying) {
+      if (padRecordToggle?.checked && state.isPlaying) {
         const stepIndex = state.currentStep;
         state.sample.padGrid[i][stepIndex] = true;
         const cell = padSeq?.querySelector(
@@ -530,7 +752,7 @@ function renderSamplePads() {
         if (cell) {
           cell.classList.add("active");
         }
-        padRecordToggle.classList.add("active");
+        scheduleSave();
       }
     });
     samplePads.appendChild(btn);
@@ -561,6 +783,7 @@ function renderPadSequencer() {
       cell.addEventListener("click", () => {
         state.sample.padGrid[rowIndex][step] = !state.sample.padGrid[rowIndex][step];
         cell.classList.toggle("active", state.sample.padGrid[rowIndex][step]);
+        scheduleSave();
       });
       row.appendChild(cell);
     }
@@ -661,6 +884,7 @@ async function handleSampleUpload(event) {
   try {
     await ensureAudioReady();
     const arrayBuffer = await file.arrayBuffer();
+    await saveSampleToDb(file, arrayBuffer);
     state.sample.buffer = null;
     const decodePromise = decodeAudio(arrayBuffer);
     const timeoutPromise = new Promise((_, reject) => {
@@ -692,6 +916,7 @@ function handleSampleTrimChange() {
   state.sample.trimEnd = Number(trimEndInput.value) / 100;
   updateSampleLabels();
   drawSampleWaveform();
+  scheduleSave();
 }
 
 function handleSampleControlsChange() {
@@ -706,11 +931,15 @@ function handleSampleControlsChange() {
   renderSampleSequencer();
   renderSamplePads();
   renderPadSequencer();
+  scheduleSave();
 }
 
 function handleSampleClear() {
   state.sample.buffer = null;
   state.sample.name = "";
+  clearSampleFromDb().catch((error) => {
+    console.warn("Failed to clear stored sample.", error);
+  });
   if (state.sample.source) {
     try {
       state.sample.source.stop();
@@ -726,6 +955,7 @@ function handleSampleClear() {
   drawSampleWaveform();
   renderSamplePads();
   renderPadSequencer();
+  scheduleSave();
 }
 
 function setupDropZone(dropZone, input, handler) {
@@ -792,6 +1022,7 @@ function applySynthSettings() {
   updateSynthLabels();
   buildSynthNotes();
   renderSynthGrid();
+  scheduleSave();
 }
 
 function playSynthNote(freq, time, duration) {
@@ -1623,9 +1854,13 @@ function bindEvents() {
   playBtn.addEventListener("click", startPlayback);
   stopBtn.addEventListener("click", stopPlayback);
   tempoInput.addEventListener("input", updateTempoLabel);
-  swingInput.addEventListener("input", updateSwingLabel);
+  swingInput.addEventListener("input", () => {
+    updateSwingLabel();
+    scheduleSave();
+  });
   swingPresetSelect.addEventListener("change", (event) => {
     applySwingPreset(event.target.value);
+    scheduleSave();
   });
   noiseToggle.addEventListener("change", () => {
     if (!state.audioCtx) return;
@@ -1634,10 +1869,13 @@ function bindEvents() {
     } else {
       stopLofiTexture();
     }
+    scheduleSave();
   });
   drumKitSelect.addEventListener("change", (event) => {
     drumKit = event.target.value;
+    scheduleSave();
   });
+  tempoInput.addEventListener("change", scheduleSave);
   if (masterLowInput) masterLowInput.addEventListener("input", applyMasterEq);
   if (masterMidInput) masterMidInput.addEventListener("input", applyMasterEq);
   if (masterHighInput) masterHighInput.addEventListener("input", applyMasterEq);
@@ -1719,4 +1957,6 @@ renderPadSequencer();
 updateSampleStatus("Sampler ready. Click Browse or drop a file.");
 updateMasterEqLabels();
 setEditMode("toggle");
+loadState();
+loadSampleFromStorage();
 bindEvents();
